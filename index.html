@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>MANA bakery Huedin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Fraunces:ital,opsz,wght@0,9..144,800;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-screen tool — 3D viewer left, spec panel right; stacks on phones */
+:root{
+  --bg:#f1f3f1; --surface:#ffffff; --fg:#1b2220; --muted:#5b6762; --line:#d6dcd8;
+  --prod:#1d6b64; --sale:#a85d1a; --warn:#a33a2a;
+  --scene:#e4e8e5; --floor:#f6f7f5; --ground:#c9cfca; --wall:#fafaf7; --cap:#3a4441; --grid:#d3d9d5;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101413; --surface:#181d1b; --fg:#e5ebe8; --muted:#97a39d; --line:#2a3330;
+  --prod:#54b5aa; --sale:#e39a55; --warn:#e2725f;
+  --scene:#141917; --floor:#39413e; --ground:#202724; --wall:#5a6460; --cap:#c9d2ce; --grid:#454e4b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101413; --surface:#181d1b; --fg:#e5ebe8; --muted:#97a39d; --line:#2a3330;
+  --prod:#54b5aa; --sale:#e39a55; --warn:#e2725f;
+  --scene:#141917; --floor:#39413e; --ground:#202724; --wall:#5a6460; --cap:#c9d2ce; --grid:#454e4b; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;
+  padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line);background:var(--surface)}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:-.01em;margin:0;line-height:1.15;text-wrap:balance}
+h1 span{font-weight:500;color:var(--muted)}
+.modes{display:flex;border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;background:var(--bg)}
+.mode{border:0;background:transparent;border-radius:7px;padding:6px 14px;cursor:pointer;display:grid;text-align:left;min-width:150px}
+.mode .mt{font-family:var(--f-display);font-weight:700;font-size:15px}
+.mode .ms{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.mode[data-mode="prod"].on{background:var(--prod);color:#fff}
+.mode[data-mode="sale"].on{background:var(--sale);color:#fff}
+.mode.on .ms{color:rgba(255,255,255,.82)}
+.mode:focus-visible,.chip:focus-visible,.seg button:focus-visible,.eq:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
+.viewer{position:relative;min-height:0;overflow:hidden;background:var(--scene)}
+#c{display:block;width:100%;height:100%;touch-action:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lb{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;font-size:9.5px;font-weight:600;line-height:1.3;
+  padding:1px 5px;border-radius:4px;background:var(--surface);color:var(--fg);border:1px solid var(--line);
+  box-shadow:0 1px 2px rgba(0,0,0,.08);transition:opacity .2s}
+.lb.mob{border-left:2px solid var(--mc,var(--prod))}
+.lb.zone{background:transparent;border:0;box-shadow:none;font-family:var(--f-mono);font-weight:500;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.lb.dim{background:transparent;border:0;box-shadow:none;font-family:var(--f-mono);font-weight:500;font-size:9px;color:var(--fg)}
+.lb.off{opacity:0}
+.vbar{position:absolute;left:12px;bottom:12px;right:12px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vbar>*{pointer-events:auto}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:500;cursor:pointer}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.sep{width:1px;background:var(--line);margin:0 4px}
+.hint{position:absolute;right:12px;top:10px;font-family:var(--f-mono);font-size:11px;color:var(--muted);pointer-events:none}
+
+.panel{overflow:auto;border-left:1px solid var(--line);background:var(--surface);
+  padding-block:16px 28px;padding-left:20px;padding-right:max(20px,env(safe-area-inset-right,0px));display:grid;gap:22px;align-content:start}
+.sec{display:grid;gap:10px}
+.sec h2{font-family:var(--f-display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:0;color:var(--muted)}
+.modebox{border-radius:10px;padding:12px 14px;border:1px solid var(--line);border-left:4px solid var(--mc);display:grid;gap:4px}
+.modebox b{font-family:var(--f-display);font-size:16px}
+.modebox p{margin:0;color:var(--muted);font-size:13.5px}
+.eqlist{display:grid;gap:2px}
+.eq{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline;padding:7px 8px;border-radius:7px;border:0;background:transparent;text-align:left;cursor:pointer;width:100%}
+.eq:hover{background:var(--bg)}
+.eq .n{font-weight:600;font-size:13.5px;min-width:0}
+.eq .s{grid-column:1;font-size:12px;color:var(--muted)}
+.tag{grid-row:1/3;grid-column:2;align-self:center;font-family:var(--f-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:4px;border:1px solid var(--line);color:var(--muted)}
+.tag.mob{color:var(--prod);border-color:var(--prod)}
+.tag.cold{color:var(--sale);border-color:var(--sale)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px;background:var(--bg)}
+.seg button{border:0;background:transparent;border-radius:6px;padding:7px 6px;cursor:pointer;font-size:12.5px;font-weight:500;line-height:1.25}
+.seg button.on{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12);font-weight:600}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px}
+.kv .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.kv .k{color:var(--muted)}
+.kv .tot{border-top:1px solid var(--line);padding-top:8px;font-weight:600;color:var(--fg)}
+.warn{font-size:12.5px;color:var(--warn)}
+.note{font-size:12.5px;color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th,.tbl td{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+.tbl th{font-weight:500;color:var(--muted);font-size:11.5px}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td{font-family:var(--f-mono);font-size:12px}.tbl td:first-child{font-family:var(--f-body);font-size:12.5px}
+.tbl tr.tot td{font-weight:600;border-bottom:0}
+.inrow{display:flex;flex-wrap:wrap;gap:8px 14px}
+.inrow label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+.inrow input{width:92px;font:500 13px var(--f-mono);padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.inrow input:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
+.reco{border-radius:10px;padding:10px 12px;background:var(--bg);border-left:4px solid var(--prod);font-size:13px;display:grid;gap:6px}
+.reco b{font-family:var(--f-display)}
+ul.pts{margin:0;padding-left:18px;display:grid;gap:6px;font-size:13px}
+ul.pts li::marker{color:var(--muted)}
+
+@media (max-width:880px){
+  .app{height:auto}
+  .main{grid-template-columns:1fr}
+  .viewer{height:64vh;min-height:380px}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .mode{min-width:0}
+  .hint{display:none}
+}
+@media (max-width:480px){ .modes{width:100%} .mode{flex:1} }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Propunere amenajare · spațiu modular producție / vânzare</div>
+      <h1>MANA bakery <span>· Huedin</span></h1>
+    </div>
+    <div class="modes" role="group" aria-label="Mod de funcționare">
+      <button class="mode on" id="m-prod" data-mode="prod" aria-pressed="true"><span class="mt">Producție</span><span class="ms">Sâm–Dum · tura 2</span></button>
+      <button class="mode" id="m-sale" data-mode="sale" aria-pressed="false"><span class="mt">Vânzare</span><span class="ms">Luni–Vineri · tura 1</span></button>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="viewer" id="viewer">
+      <canvas id="c" aria-label="Model 3D al spațiului"></canvas>
+      <div id="labels"></div>
+      <div class="hint">trage pentru rotire · scroll pentru zoom</div>
+      <div class="vbar">
+        <button class="chip on" id="v-iso" data-view="iso">3D</button>
+        <button class="chip" id="v-plan" data-view="plan">Plan</button>
+        <button class="chip" id="v-street" data-view="street">Din stradă</button>
+        <span class="sep"></span>
+        <button class="chip on" id="t-labels">Etichete</button>
+        <button class="chip on" id="t-flow">Flux</button>
+        <button class="chip on" id="t-facade">Fațadă</button>
+        <button class="chip on" id="t-roof">Acoperiș</button>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="sec">
+        <div class="modebox" id="modebox"></div>
+      </div>
+
+      <div class="sec">
+        <h2>Utilaje</h2>
+        <div class="eqlist" id="eqlist"></div>
+      </div>
+
+      <div class="sec">
+        <h2>Răcire și congelare · 4 unități</h2>
+        <div class="seg" id="cfg">
+          <button id="cfg-4" data-cfg="4">4 abatitoare</button>
+          <button id="cfg-22" data-cfg="22" class="on">2 abatitoare + 2 congelatoare</button>
+          <button id="cfg-13" data-cfg="13">1 abatitor + 3 congelatoare</button>
+        </div>
+        <div class="kv" id="cap"></div>
+        <div class="warn" id="capwarn" hidden></div>
+        <div class="note">Abatitor 60 kg/ciclu, 90–230 min. Congelator depozit 60–120 kg.</div>
+      </div>
+
+      <div class="sec">
+        <h2>Mașina de fitile · 50 kg/h</h2>
+        <div class="seg" id="fit">
+          <button id="fit-m" data-fit="m">Tăiere manuală<br><span class="note">5.400 €</span></button>
+          <button id="fit-a" data-fit="a" class="on">Tăiere automată<br><span class="note">8.500 € · recomandat</span></button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h2>Capacitate și program zilnic</h2>
+        <div class="seg" id="loc">
+          <button id="loc-1" data-loc="1">1 locație</button>
+          <button id="loc-2" data-loc="2">2 locații</button>
+          <button id="loc-3" data-loc="3">3 locații</button>
+          <button id="loc-4" data-loc="4" class="on">4 locații</button>
+        </div>
+        <div class="inrow">
+          <label for="g-cov">Covrig, g aluat<input id="g-cov" type="number" min="30" max="300" step="5" value="90"></label>
+          <label for="g-blat">Blat, g aluat<input id="g-blat" type="number" min="30" max="500" step="5" value="150"></label>
+        </div>
+        <div style="overflow-x:auto"><table class="tbl" id="need"></table></div>
+        <div class="kv" id="capx"></div>
+        <div style="overflow-x:auto"><table class="tbl" id="hours"></table></div>
+        <div class="reco" id="reco"></div>
+        <div class="note">O locație vinde 240–300 covrigi și 100–120 blaturi pe zi. Randamentul real al mașinii de fitile e luat 80% din nominal (40 kg/h automat, ≈ 32 kg/h cu tăiere manuală). Capacitatea mașinii de turat nu e în specificații și e estimată la 150–200 blaturi/h. Tura include pregătirea (0,5 h), prima șarjă cu odihna aluatului (0,75 h), igienizarea și trecerea la vânzare (1 h) și pauze.</div>
+      </div>
+
+      <div class="sec">
+        <h2>Putere electrică necesară</h2>
+        <div style="overflow-x:auto"><table class="tbl" id="pwr"></table></div>
+        <div class="kv" id="pwrsum"></div>
+        <div class="reco" id="pwrreco" style="border-left-color:var(--sale)"></div>
+        <ul class="pts">
+          <li>Alimentare trifazică 400 V. Malaxorul, abatitoarele și cuptorul au circuite dedicate, iar fiecare circuit are protecție diferențială de 30 mA.</li>
+          <li>Utilajele pe roți se alimentează din prize industriale CEE (16/32 A), montate în ambele poziții, de producție și de vânzare, sau din coborâri din tavan, fără prelungitoare pe pardoseală.</li>
+          <li>Malaxorul are pornire stea-triunghi sau convertizor, ca să nu declanșeze protecția la pornire.</li>
+          <li>Dacă puterea aprobată actuală e mai mică, se cere aviz tehnic de racordare (ATR) pentru spor de putere la operatorul de distribuție.</li>
+        </ul>
+        <div class="note">Puterile sunt valori tipice de catalog pentru utilaje din aceeași clasă. Se înlocuiesc cu datele de pe plăcuțele din ofertele finale. Pentru un cuptor tunel pe gaz, consumul electric al cuptorului scade la circa 0,5–1 kW.</div>
+      </div>
+
+      <div class="sec">
+        <h2>Investiție utilaje noi</h2>
+        <div class="kv" id="inv"></div>
+        <div class="note">Prețuri aproximative fără TVA. Abatitoarele se adaugă după ofertă. Cuptorul, masa și chiuvetele sunt considerate existente.</div>
+      </div>
+
+      <div class="sec">
+        <h2>Organizare</h2>
+        <ul class="pts">
+          <li>În producție rămâne doar stocul tampon de un palet, lângă ușa dublă din spate.</li>
+          <li>Utilajele mobile au roți cu frână. Pozițiile din ambele moduri se marchează pe pardoseală.</li>
+          <li>Producția și vânzarea nu se suprapun în timp. La fiecare schimbare de mod se face curățenie și dezinfecție, conform planului HACCP.</li>
+        </ul>
+      </div>
+
+      <div class="sec">
+        <h2>Suprafețe</h2>
+        <div class="kv">
+          <span class="k">Spațiu principal</span><span class="v">≈ 4,70 × 4,70 m · 22,1 m²</span>
+          <span class="k">Vestiar</span><span class="v">≈ 2,15 × 1,88 m · 4,0 m²</span>
+        </div>
+        <div class="note">Cotele sunt estimate din proporțiile schiței și se ajustează după releveu.</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const viewer=$('#viewer'), canvas=$('#c'), labelsEl=$('#labels');
+
+if(!window.THREE){viewer.insertAdjacentHTML('beforeend','<p style="position:absolute;inset:auto 16px 60px;color:var(--muted)">Modelul 3D nu s-a putut încărca. Reîncarcă pagina.</p>');return;}
+
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(38,1,0.1,200);
+const controls=new THREE.OrbitControls(camera,canvas);
+controls.enableDamping=true; controls.maxPolarAngle=Math.PI*0.495; controls.minDistance=2.5; controls.maxDistance=30;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x80877f,0.7));
+const sun=new THREE.DirectionalLight(0xffffff,0.75); sun.position.set(-5,12,6); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); Object.assign(sun.shadow.camera,{left:-9,right:9,top:9,bottom:-9,near:1,far:40}); sun.shadow.bias=-0.0006;
+sun.target.position.set(2.3,0,-3.3); scene.add(sun,sun.target);
+const fill=new THREE.DirectionalLight(0xffffff,0.25); fill.position.set(8,6,-10); scene.add(fill);
+
+const std=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.55,metalness:0},o));
+const M={
+  steel:std(0xc3c8cc,{metalness:.55,roughness:.35}), steel2:std(0xa7adb2,{metalness:.6,roughness:.4}),
+  dark:std(0x2e3436,{roughness:.6}), white:std(0xeef1f2,{roughness:.4}), belt:std(0x3b4044,{roughness:.8}),
+  wood:std(0xc29a62,{roughness:.9}), kraft:std(0xc9a876,{roughness:.95}), sack:std(0xf0ede4,{roughness:.95}),
+  dough:std(0xd59a4f,{roughness:.7}), oil:std(0xe2c24a,{roughness:.3}), lift:std(0xd39a1f,{roughness:.5}),
+  glowB:std(0x111111,{emissive:0x2bd1c0,emissiveIntensity:1}), glowO:std(0x111111,{emissive:0xff7a1a,emissiveIntensity:1.2}),
+  glass:new THREE.MeshStandardMaterial({color:0xbfe3ea,transparent:true,opacity:.35,roughness:.1}),
+  floor:std(0xf6f7f5,{roughness:.9}), ground:std(0xc9cfca,{roughness:1}), pave:std(0xdadfdb,{roughness:1}),
+  wall:std(0xfafaf7,{roughness:.9}), cap:std(0x3a4441), door:std(0x9fb0b4,{roughness:.6}),
+  person:new THREE.MeshStandardMaterial({color:0x7d8a86,transparent:true,opacity:0})
+};
+const zoneProd=new THREE.MeshBasicMaterial({color:0x1d6b64,transparent:true,opacity:.1,depthWrite:false});
+const zoneSale=new THREE.MeshBasicMaterial({color:0xa85d1a,transparent:true,opacity:0,depthWrite:false});
+const flowMat=new THREE.MeshBasicMaterial({color:0x1d6b64,transparent:true,opacity:.9});
+const gridMat=new THREE.LineBasicMaterial({color:0xd3d9d5});
+const dimMat=new THREE.LineBasicMaterial({color:0x5b6762});
+
+function mesh(geo,mat,x=0,y=0,z=0,parent){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;if(parent)parent.add(m);return m;}
+function B(w,h,d,mat,x,y,z,parent){return mesh(new THREE.BoxGeometry(w,h,d),mat,x,y+h/2,z,parent);}
+function C(r,h,mat,x,y,z,parent,r2){return mesh(new THREE.CylinderGeometry(r2??r,r,h,24),mat,x,y+h/2,z,parent);}
+function wheels(g,w,d){[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>{const m=mesh(new THREE.CylinderGeometry(.05,.05,.035,16),M.dark,a*(w/2-.07),.05,b*(d/2-.07),g);m.rotation.z=Math.PI/2;});}
+function pretzel(parent,x,y,z,s=1){const t=mesh(new THREE.TorusGeometry(.034*s,.011*s,8,20),M.dough,x,y,z,parent);t.rotation.x=Math.PI/2;return t;}
+
+/* ---------- equipment models (origin = footprint centre on floor; length along x) ---------- */
+function mkMalaxor(){const g=new THREE.Group();
+  C(.3,.1,M.steel2,0,0,0,g); C(.27,.4,M.white,.04,.1,0,g); C(.33,.42,M.steel,.05,.5,0,g,.3);
+  C(.29,.01,M.dough,.05,.9,0,g); B(.24,1.3,.48,M.white,-.22,0,0,g); B(.52,.22,.4,M.white,-.04,1.08,0,g);
+  C(.025,.32,M.steel2,.08,.78,0,g); B(.02,.12,.18,M.dark,-.335,.95,0,g); return g;}
+function mkTurat(){const g=new THREE.Group();
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>B(.04,.72,.04,M.steel,a*.19,.08,b*.28,g)); wheels(g,.5,.68);
+  B(.42,.03,.6,M.steel2,0,.3,0,g); B(.45,.5,.66,M.steel,0,.8,0,g); B(.47,.06,.68,M.dark,0,1.3,0,g);
+  B(.02,.14,.22,M.dark,0,1.05,.335,g);
+  const L=.54, wings=[];
+  [-1,1].forEach(s=>{const p=new THREE.Group();p.position.set(s*.225,.86,0);g.add(p);
+    B(L,.04,.6,M.belt,s*L/2,0,0,p); B(L,.06,.03,M.steel,s*L/2,-.01,.31,p); B(L,.06,.03,M.steel,s*L/2,-.01,-.31,p);
+    wings.push({p,s});});
+  g.userData.fold=f=>wings.forEach(({p,s})=>p.rotation.z=s*f*Math.PI/2*.96); return g;}
+function mkFitile(){const g=new THREE.Group(); wheels(g,1.5,.53);
+  B(1.5,.76,.53,M.steel,0,.1,0,g); B(1.28,.04,.42,M.belt,.1,.86,0,g);
+  B(.42,.55,.53,M.steel,-.54,.86,0,g); B(.36,.24,.42,M.steel2,-.54,1.41,0,g);
+  B(.01,.22,.3,M.dark,-.755,1.0,0,g); B(.01,.06,.12,M.glowB,-.758,1.12,0,g);
+  for(let i=0;i<5;i++){const r=mesh(new THREE.CylinderGeometry(.016,.016,.32,10),M.dough,-.1+i*.13,.9,0,g);r.rotation.x=Math.PI/2;} return g;}
+function mkMasa(){const g=new THREE.Group(); wheels(g,.53,1.5);
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>B(.035,.76,.035,M.steel,a*.22,.1,b*.69,g));
+  B(.53,.04,1.5,M.steel,0,.86,0,g); B(.5,.03,1.44,M.steel2,0,.26,0,g);
+  [-.36,.36].forEach(z=>{B(.4,.015,.6,M.steel2,0,.9,z,g);for(let i=0;i<3;i++)for(let j=0;j<4;j++)pretzel(g,-.12+i*.12,.925,z-.21+j*.14);});
+  return g;}
+function mkCuptor(){const g=new THREE.Group(); wheels(g,1.2,.5);
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>B(.04,.72,.04,M.steel,a*.52,.08,b*.22,g));
+  B(1.48,.03,.5,M.steel2,0,.8,0,g); B(1.0,.5,.57,M.steel,0,.83,0,g); B(1.04,.08,.6,M.steel2,0,1.33,0,g);
+  C(.06,.35,M.steel2,.3,1.41,0,g); [-1,1].forEach(s=>B(.01,.1,.44,M.glowO,s*.505,.85,0,g));
+  B(.02,.18,.2,M.dark,0,1.0,.29,g);
+  [-.64,-.56,.6,.68].forEach((x,i)=>pretzel(g,x,.84,i%2?.1:-.1,1.15)); return g;}
+function mkStoc(){const g=new THREE.Group(); B(.94,.14,.94,M.wood,0,0,0,g);
+  for(let l=0;l<3;l++)[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b])=>{const s=B(.43,.15,.43,l===2&&a>0?M.sack:M.kraft,a*.23,.15+l*.16,b*.23,g);s.rotation.y=(l%2)*.05;}); return g;}
+function mkChiuveta(){const g=new THREE.Group(); B(.56,.82,1.12,M.steel,0,.04,0,g); B(.6,.04,1.14,M.steel2,0,.86,0,g);
+  B(.03,.26,1.12,M.steel,-.27,.9,0,g);
+  [-.27,.27].forEach(z=>{B(.36,.012,.42,M.dark,.04,.897,z,g);C(.014,.26,M.steel2,-.2,.9,z,g);B(.14,.025,.025,M.steel2,-.14,1.14,z,g);}); return g;}
+function mkPedala(){const g=new THREE.Group(); B(.32,.3,.28,M.steel,0,.58,0,g); B(.26,.01,.18,M.dark,0,.885,-.02,g);
+  B(.32,.22,.02,M.steel,0,.88,.13,g); C(.012,.14,M.steel2,0,.88,.08,g); B(.1,.04,.12,M.dark,0,0,-.04,g); C(.01,.56,M.steel2,0,.03,.05,g); return g;}
+function mkCold(){const g=new THREE.Group();
+  const a=new THREE.Group(), c=new THREE.Group(); g.add(a,c);
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([x,z])=>{C(.025,.1,M.dark,x*.38,0,z*.3,a);C(.025,.1,M.dark,x*.38,0,z*.3,c);});
+  B(.88,1.8,.74,M.steel,0,.1,0,a); B(.84,1.36,.02,M.steel2,0,.14,.38,a); B(.84,.34,.02,M.dark,0,1.54,.38,a);
+  B(.2,.08,.01,M.glowB,-.2,1.66,.392,a); B(.03,.5,.04,M.dark,.36,.6,.4,a);
+  B(.88,1.8,.74,M.white,0,.1,0,c); B(.84,1.7,.02,M.white,0,.14,.38,c); B(.03,.6,.04,M.steel2,.36,.8,.4,c);
+  B(.12,.05,.01,M.glowB,-.3,1.76,.392,c); B(.84,.02,.005,M.steel,0,1.86,.392,c);
+  g.userData.set=k=>{a.visible=k==='A';c.visible=k==='C';}; return g;}
+function mkPallet(w,d,load){const g=new THREE.Group(); B(w,.14,d,M.wood,0,0,0,g);
+  if(load==='oil'){for(let i=0;i<3;i++)for(let j=0;j<2;j++)for(let l=0;l<2;l++)C(.11,.3,M.oil,-w/2+.2+i*(w-.4)/2,.14+l*.31,-d/2+.2+j*(d-.4),g);}
+  else{const nx=w>d?3:2,nz=w>d?2:3;for(let l=0;l<4;l++)for(let i=0;i<nx;i++)for(let j=0;j<nz;j++)B(w/nx-.03,.14,d/nz-.03,load==='sug'?M.sack:M.kraft,-w/2+(i+.5)*w/nx,.14+l*.15,-d/2+(j+.5)*d/nz,g);}
+  return g;}
+function mkLift(){const g=new THREE.Group();
+  [-.2,.2].forEach(x=>B(.16,.06,1.15,M.lift,x,.02,0,g)); B(.56,.3,.28,M.lift,0,.02,.72,g);
+  const t=C(.018,1.05,M.dark,0,.3,.76,g); t.rotation.x=-.35; t.position.z=.92; t.position.y=.78;
+  B(.3,.03,.03,M.dark,0,1.25,1.08,g); const p=mkPallet(.8,1.2,'flour'); p.position.y=.08; g.add(p); return g;}
+function person(x,z,parent){const g=new THREE.Group();mesh(new THREE.CylinderGeometry(.16,.19,1.05,16),M.person,0,.55,0,g);mesh(new THREE.SphereGeometry(.13,16,12),M.person,0,1.28,0,g);g.position.set(x,0,z);g.traverse(o=>{o.castShadow=false});parent.add(g);return g;}
+
+/* ---------- site ---------- */
+const root=new THREE.Group(); root.scale.z=-1; scene.add(root);
+const site=new THREE.Group(); root.add(site);
+const plane=(w,d,mat,x,z,y=0)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),mat);m.rotation.x=-Math.PI/2;m.position.set(x,y,z);m.receiveShadow=true;site.add(m);return m;};
+plane(40,40,M.ground,2.35,3,-.02);
+plane(9,2.5,M.pave,2.35,-1.37,-.012);        // trotuar
+plane(4.94,4.94,M.floor,2.35,2.35);          // spațiu principal
+plane(2.27,1.99,M.floor,3.62,5.69);          // vestiar
+(function grid(){const p=[];for(let x=0;x<=4.7001;x+=.5){p.push(x,.003,0,x,.003,4.7);}for(let z=0;z<=4.7001;z+=.5){p.push(0,.003,z,4.7,.003,z);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));site.add(new THREE.LineSegments(g,gridMat));})();
+(function dims(){const p=[0,.01,-.45,4.7,.01,-.45, 0,.01,-.35,0,.01,-.55, 4.7,.01,-.35,4.7,.01,-.55,
+  -.45,.01,0,-.45,.01,4.7, -.35,.01,0,-.55,.01,0, -.35,.01,4.7,-.55,.01,4.7];
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));site.add(new THREE.LineSegments(g,dimMat));})();
+
+/* zones */
+const zP=plane(4.7,4.7,zoneProd,2.35,2.35,.006);
+const zS1=plane(1.9,1.55,zoneSale,3.75,.78,.006);
+const zS2=plane(1.7,1.6,zoneSale,3.65,-.95,.006);
+const people=[person(3.3,-1.0,site),person(4.05,-1.55,site)];
+
+/* walls */
+const wallG=new THREE.Group(); root.add(wallG);
+const T=.12;
+function W(x1,z1,x2,z2,y0,y1,mat=M.wall){if(y1-y0<.005)return;const h=y1-y0;const hor=Math.abs(z1-z2)<1e-6;
+  const w=hor?Math.abs(x2-x1):T, d=hor?T:Math.abs(z2-z1), cx=(x1+x2)/2, cz=(z1+z2)/2;
+  B(w,h,d,mat,cx,y0,cz,wallG); if(mat===M.wall)B(w+.002,.012,d+.002,M.cap,cx,y1-.006,cz,wallG);}
+function opening(x1,z1,x2,z2,H,top=2.1){if(H>top)W(x1,z1,x2,z2,top,H);}
+function leaf(px,pz,w,h,ang,axis){const p=new THREE.Group();p.position.set(px,0,pz);p.rotation.y=ang;wallG.add(p);
+  if(axis==='x')B(Math.abs(w),h,.04,M.door,w/2,0,0,p);else B(.04,h,Math.abs(w),M.door,0,0,w/2,p);}
+function buildWalls(H){while(wallG.children.length){const c=wallG.children.pop();c.traverse(o=>o.geometry&&o.geometry.dispose());}
+  const LH=Math.min(H,2.05);
+  W(-.06,-.12,-.06,4.82,0,H);                      // stânga
+  W(4.76,-.12,4.76,6.69,0,H);                      // dreapta + fost vestiar
+  W(0,-.06,2.8,-.06,0,H); W(4.5,-.06,4.7,-.06,0,H); // față
+  W(2.8,-.06,4.5,-.06,0,Math.min(.9,H));           // parapet vitrină
+  if(H>.9)W(2.8,-.06,4.5,-.06,.9,Math.min(H,2.1),M.glass);
+  opening(2.8,-.06,4.5,-.06,H);
+  B(1.8,.04,.38,M.steel2,3.65,.9,-.24,wallG);      // blat vitrină exterior
+  W(-.12,4.76,1.09,4.76,0,H); opening(1.09,4.76,2.33,4.76,H); W(2.33,4.76,2.6,4.76,0,H);
+  opening(2.6,4.76,3.2,4.76,H); W(3.2,4.76,4.7,4.76,0,H);
+  W(2.49,4.82,2.49,6.69,0,H); W(2.43,6.63,4.82,6.63,0,H);
+  leaf(1.09,4.82,.62,LH,-1.15,'x'); leaf(2.33,4.82,-.62,LH,1.15,'x'); leaf(3.2,4.82,-.6,LH,1.25,'x');
+}
+let wallsTall=true; buildWalls(2.7);
+
+/* ---------- MANA bakery: facade + roof (world coords, street side = +z) ---------- */
+const brand=new THREE.Group(), roofG=new THREE.Group(); scene.add(brand,roofG);
+const BR={green:std(0x22302b,{roughness:.7}),oak:std(0xb98451,{roughness:.8}),gold:std(0xc99a45,{metalness:.6,roughness:.3}),
+  roof:std(0x9aa19d,{roughness:1}),par:std(0x2a3732,{roughness:.7}),lamp:std(0x111111,{emissive:0xffd9a0,emissiveIntensity:1.4})};
+const texRedraws=[];
+function tex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;const t=new THREE.CanvasTexture(c);t.anisotropy=8;
+  const r=()=>{const x=c.getContext('2d');x.clearRect(0,0,w,h);draw(x,w,h);t.needsUpdate=true;};r();texRedraws.push(r);return t;}
+function drawPretzel(x,cx,cy,s,col){x.save();x.strokeStyle=col;x.lineWidth=7*s;x.lineCap='round';
+  x.beginPath();x.ellipse(cx-16*s,cy-6*s,16*s,20*s,-.35,0,Math.PI*2);x.stroke();
+  x.beginPath();x.ellipse(cx+16*s,cy-6*s,16*s,20*s,.35,0,Math.PI*2);x.stroke();
+  x.beginPath();x.moveTo(cx-30*s,cy+10*s);x.quadraticCurveTo(cx,cy+40*s,cx+30*s,cy+10*s);x.stroke();x.restore();}
+const FB='800 200px Fraunces, Georgia, serif', FI='italic 400 110px Fraunces, Georgia, serif';
+const signTex=tex(1600,320,(x,w,h)=>{x.textBaseline='middle';x.font=FB;const L='MANA'.split(''),sp=26;
+  const wB=L.reduce((a,l)=>a+x.measureText(l).width,0)+sp*3;x.font=FI;const wS=x.measureText('bakery').width;
+  const icon=130,gap=44;let cx=(w-(icon+gap+wB+gap+wS))/2;drawPretzel(x,cx+icon/2,h/2,2.3,'#e3b45c');cx+=icon+gap;
+  x.fillStyle='#f2cf86';x.font=FB;L.forEach(l=>{x.fillText(l,cx,h/2+12);cx+=x.measureText(l).width+sp;});cx+=gap-sp;
+  x.fillStyle='#f4ecdd';x.font=FI;x.fillText('bakery',cx,h/2+28);});
+const bladeTex=tex(512,512,(x)=>{x.fillStyle='#22302b';x.beginPath();x.arc(256,256,250,0,7);x.fill();
+  x.strokeStyle='#d9a74a';x.lineWidth=10;x.beginPath();x.arc(256,256,226,0,7);x.stroke();drawPretzel(x,256,180,2.4,'#e3b45c');
+  x.textAlign='center';x.textBaseline='middle';x.fillStyle='#f2cf86';x.font='800 100px Fraunces, Georgia, serif';x.fillText('MANA',256,325);
+  x.fillStyle='#f4ecdd';x.font='italic 400 56px Fraunces, Georgia, serif';x.fillText('bakery',256,398);});
+const stripeTex=tex(512,64,(x,w,h)=>{for(let i=0;i<12;i++){x.fillStyle=i%2?'#efe6d2':'#22302b';x.fillRect(i*w/12,0,w/12+1,h);}});
+const valTex=tex(1024,100,(x,w,h)=>{x.fillStyle='#22302b';x.fillRect(0,0,w,h);x.fillStyle='#f2cf86';x.font='italic 400 54px Fraunces, Georgia, serif';
+  x.textAlign='center';x.textBaseline='middle';x.fillText('covrigi calzi · patiserie · cafea',w/2,h/2+4);});
+const menuTex=tex(256,384,(x,w,h)=>{x.fillStyle='#1d2622';x.fillRect(0,0,w,h);x.strokeStyle='#b98451';x.lineWidth=14;x.strokeRect(0,0,w,h);
+  x.fillStyle='#f4ecdd';x.textAlign='center';x.font='800 50px Fraunces, Georgia, serif';x.fillText('MANA',w/2,82);
+  x.font='italic 400 32px Fraunces, Georgia, serif';x.fillText('covrigi calzi',w/2,160);x.fillText('patiserie',w/2,205);x.fillText('cafea',w/2,250);
+  drawPretzel(x,w/2,320,1.2,'#e3b45c');});
+const basic=t=>new THREE.MeshBasicMaterial({map:t,transparent:true,side:THREE.DoubleSide});
+// cladding
+B(2.92,2.7,.02,BR.green,1.34,0,.13,brand); B(.32,2.7,.02,BR.green,4.66,0,.13,brand);
+B(1.7,.6,.02,BR.oak,3.65,2.1,.13,brand); B(1.7,.9,.02,BR.green,3.65,0,.13,brand);
+for(let i=0;i<13;i++)B(.045,2.5,.04,BR.oak,.25+i*.105,.1,.16,brand);
+// fascia + illuminated sign
+B(5.3,.68,.3,BR.par,2.35,2.7,.27,brand); B(5.32,.03,.32,BR.gold,2.35,2.7,.27,brand); B(5.32,.03,.32,BR.gold,2.35,3.35,.27,brand);
+const sg=new THREE.Mesh(new THREE.PlaneGeometry(3.4,.68),basic(signTex));sg.position.set(2.35,3.04,.425);brand.add(sg);
+// blade sign
+B(.03,.03,.75,BR.gold,.05,2.56,.505,brand);B(.012,.3,.012,BR.gold,.05,2.27,.6,brand);
+[Math.PI/2,-Math.PI/2].forEach((r,i)=>{const d=new THREE.Mesh(new THREE.CircleGeometry(.3,48),basic(bladeTex));d.rotation.y=r;d.position.set(.05+(i?-.006:.006),2.22,.6);brand.add(d);});
+// awning
+const aw=new THREE.Mesh(new THREE.BoxGeometry(1.9,.015,.93),new THREE.MeshStandardMaterial({map:stripeTex,roughness:.9}));
+aw.position.set(3.65,2.12,.57);aw.rotation.x=.386;aw.castShadow=true;brand.add(aw);
+const val=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.2),new THREE.MeshStandardMaterial({map:valTex,roughness:.9,side:THREE.DoubleSide}));val.position.set(3.65,1.85,1.0);brand.add(val);
+[2.71,4.59].forEach(x=>{const a=new THREE.Mesh(new THREE.BoxGeometry(.02,.02,.95),BR.gold);a.position.set(x,2.11,.57);a.rotation.x=.386;brand.add(a);});
+// wall lamps
+[2.62,4.68].forEach(x=>{B(.08,.14,.08,BR.gold,x,2.25,.18,brand);B(.06,.03,.06,BR.lamp,x,2.22,.18,brand);});
+// A-frame menu board on the sidewalk
+const mb=new THREE.Group();mb.position.set(1.7,0,1.15);brand.add(mb);
+const mf=new THREE.Mesh(new THREE.PlaneGeometry(.5,.75),new THREE.MeshStandardMaterial({map:menuTex,roughness:.9}));mf.position.set(0,.4,.08);mf.rotation.x=-.2;mb.add(mf);
+const mbk=B(.5,.75,.02,BR.oak,0,.02,-.08,mb);mbk.rotation.x=.2;
+// roof
+B(5.3,.2,5.37,BR.roof,2.35,2.7,-2.265,roofG); B(2.69,.2,1.87,BR.roof,3.655,2.7,-5.885,roofG);
+B(.15,.35,5.37,BR.par,-.225,2.9,-2.265,roofG); B(.15,.35,7.24,BR.par,4.925,2.9,-3.2,roofG);
+B(2.61,.35,.15,BR.par,1.005,2.9,-4.875,roofG); B(.15,.35,1.87,BR.par,2.385,2.9,-5.885,roofG); B(2.69,.35,.15,BR.par,3.655,2.9,-6.745,roofG);
+B(1.0,.55,.7,M.white,1.2,2.9,-3.4,roofG); C(.22,.02,M.dark,1.2,3.45,-3.4,roofG);
+C(.09,1.0,M.steel2,3.9,2.9,-1.6,roofG); C(.16,.06,M.steel2,3.9,3.9,-1.6,roofG);
+if(document.fonts&&document.fonts.load)Promise.all([document.fonts.load(FB),document.fonts.load(FI)]).then(()=>texRedraws.forEach(r=>r())).catch(()=>{});
+let roofOn=true,facadeOn=true,roofK=1;
+function setFacade(v){facadeOn=v;brand.visible=v;wallsTall=v;buildWalls(v?2.7:1.1);document.getElementById('t-facade').classList.toggle('on',v);if(!v)setRoof(false);}
+function setRoof(v){roofOn=v;if(v&&!facadeOn)setFacade(true);document.getElementById('t-roof').classList.toggle('on',v);}
+
+/* ---------- items ---------- */
+const items=[];
+function add(id,model,prod,sale,lh){model.position.set(prod.x,0,prod.z);model.rotation.y=prod.r||0;root.add(model);
+  const it={id,model,prod,sale,lh,cur:0,start:0};items.push(it);return it;}
+const RX=Math.PI/2;
+add('malaxor',mkMalaxor(),{x:.43,z:3.1},null,1.45);
+add('stoc',mkStoc(),{x:.47,z:4.22},null,.85);
+add('chiuveta',mkChiuveta(),{x:.28,z:1.97},null,1.2);
+add('pedala',mkPedala(),{x:2.46,z:4.55},null,1.05);
+const coldPos=[{x:.48,z:.41},{x:1.375,z:.41},{x:2.28,z:.41},{x:4.2,z:4.29,r:Math.PI}];
+coldPos.forEach((p,i)=>add('u'+i,mkCold(),p,null,2.0));
+add('turat',mkTurat(),{x:2.43,z:3.3,r:0,f:0},{x:3.36,z:4.18,r:RX,f:1},1.45);
+add('fitile',mkFitile(),{x:2.43,z:1.83,r:0},{x:.8,z:1.1,r:0},1.55);
+add('masa',mkMasa(),{x:4.11,z:2.48,r:0},{x:2.36,z:2.41,r:0},1.05);
+add('cuptor',mkCuptor(),{x:3.76,z:.33,r:0},{x:3.88,z:2.42,r:RX},1.85);
+const byId=id=>items.find(i=>i.id===id);
+
+/* ---------- flow (production) ---------- */
+const flowG=new THREE.Group(); root.add(flowG);
+const flowPaths=[
+  [[1.7,5.6],[1.7,4.95],[1.05,4.3]],
+  [[.95,3.75],[.95,3.3],[1.6,3.3]],
+  [[3.25,3.3],[3.25,2.6],[3.25,2.15]],
+  [[3.25,1.55],[3.8,1.5],[3.85,1.72]],
+  [[3.6,1.6],[3.6,.75]],
+  [[3.85,1.72],[3.85,1.6],[2.0,1.25],[1.6,.9]]
+];
+const beads=[];
+flowPaths.forEach(pts=>{const v=pts.map(([x,z])=>new THREE.Vector3(x,.015,z));let len=0;const segs=[];
+  for(let i=0;i<v.length-1;i++){const a=v[i],b=v[i+1],l=a.distanceTo(b);segs.push({a,b,l,o:len});len+=l;
+    for(let s=0;s<l-.05;s+=.2){const p1=a.clone().lerp(b,s/l),p2=a.clone().lerp(b,Math.min(s+.12,l)/l);
+      const m=new THREE.Mesh(new THREE.BoxGeometry(.05,.01,p1.distanceTo(p2)),flowMat);m.position.copy(p1).lerp(p2,.5);m.lookAt(p2.x,m.position.y,p2.z);flowG.add(m);}}
+  const last=segs[segs.length-1],cone=new THREE.Mesh(new THREE.ConeGeometry(.07,.18,12),flowMat);
+  cone.position.copy(last.b);cone.position.y=.03;const dir=last.b.clone().sub(last.a).normalize();cone.rotation.x=Math.PI/2;cone.rotation.z=-Math.atan2(dir.x,dir.z);
+  cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);flowG.add(cone);
+  const bead=new THREE.Mesh(new THREE.SphereGeometry(.05,12,10),flowMat);flowG.add(bead);beads.push({bead,segs,len});});
+
+/* ---------- labels ---------- */
+const labels=[];
+function label(text,cls,get){const el=document.createElement('div');el.className='lb '+cls;el.textContent=text;labelsEl.appendChild(el);const L={el,get,on:true,inside:false};labels.push(L);return L;}
+const EQ={
+  malaxor:['Malaxor 100 L','55–60 kg aluat / șarjă','fix'],
+  turat:['Mașină de turat','pliabilă în modul vânzare','mob'],
+  fitile:['Mașină de fitile','50 kg/h','mob'],
+  masa:['Masă mobilă','inox, 0,53 × 1,50 m','mob'],
+  cuptor:['Cuptor tunel','pe roți','mob'],
+  stoc:['Stoc tampon făină','un europalet','fix'],
+  chiuveta:['Chiuvetă dublă','spălare ustensile','fix'],
+  pedala:['Chiuvetă cu pedală','igienizare mâini','fix']
+};
+const tmp=new THREE.Vector3();
+items.forEach(it=>{const e=EQ[it.id];const name=e?e[0]:'Unitate frig';
+  it.label=label(name,(e&&e[2]==='mob')?'mob':'',()=>tmp.set(it.model.position.x,it.lh,it.model.position.z));it.label.inside=true;});
+label('Vitrină vânzare','zone',()=>tmp.set(3.65,1.15,-.3));
+label('Ușă dublă 1,24 m','zone',()=>tmp.set(1.71,.05,5.15));
+label('Vestiar','zone',()=>tmp.set(3.62,1.3,5.65)).inside=true;
+label('4,70 m','dim',()=>tmp.set(2.35,.05,-.45));
+label('4,70 m','dim',()=>tmp.set(-.5,.05,2.35));
+const saleLbl=label('Zonă servire','zone',()=>tmp.set(3.75,.05,.8));saleLbl.inside=true;
+
+/* ---------- panel ---------- */
+const S={mode:'prod',cfg:'22',fit:'a'};
+const MODES={
+  prod:{t:'Producție',p:'Sâmbătă–duminică și tura a 2-a. Utilajele pe roți ies în centru. Fluxul pleacă de la stocul tampon spre malaxor, turat, fitile și masă, apoi la abatitoare pentru congelare sau la cuptorul de lângă vitrină.'},
+  sale:{t:'Vânzare',p:'Luni–vineri, tura 1. Mașina de turat se pliază, iar fitilele și masa se trag spre perete. Cuptorul tunel trece în zona centrală și coace din produsul congelat, iar frontul de lângă vitrină rămâne liber pentru servire.'}
+};
+function renderMode(){const m=MODES[S.mode],b=$('#modebox');b.style.setProperty('--mc',S.mode==='prod'?'var(--prod)':'var(--sale)');
+  b.innerHTML=`<b>${m.t}</b><p>${m.p}</p>`;
+  document.querySelectorAll('.mode').forEach(x=>{const on=x.dataset.mode===S.mode;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on);});}
+function coldKinds(){return S.cfg==='4'?['A','A','A','A']:S.cfg==='22'?['A','A','C','C']:['A','C','C','C'];}
+const eqOrder=['malaxor','turat','fitile','masa','cuptor','u0','u1','u2','u3','stoc','chiuveta','pedala'];
+function renderEq(){const k=coldKinds();$('#eqlist').innerHTML=eqOrder.map(id=>{
+    if(id[0]==='u'){const i=+id[1],a=k[i]==='A';return `<button class="eq" data-id="${id}"><span class="n">${a?'Abatitor / congelator rapid':'Congelator depozit'}</span><span class="s">${a?'60 kg/ciclu · 90–230 min':'60–120 kg · 2.500 €'}</span><span class="tag cold">frig ${i+1}</span></button>`;}
+    const e=EQ[id];return `<button class="eq" data-id="${id}"><span class="n">${e[0]}</span><span class="s">${e[1]}</span><span class="tag ${e[2]==='mob'?'mob':''}">${e[2]==='mob'?'pe roți':'fix'}</span></button>`;}).join('');
+  items.forEach(it=>{if(it.id[0]==='u'){const i=+it.id[1];it.model.userData.set(k[i]);it.label.el.textContent=(k[i]==='A'?'Abatitor ':'Congelator ')+(i+1);}});}
+const eur=n=>n.toLocaleString('ro-RO')+' €';
+function renderNums(){const k=coldKinds(),nA=k.filter(x=>x==='A').length,nC=4-nA;
+  $('#cap').innerHTML=`<span class="k">Răcire rapidă, tură de 8 h</span><span class="v">${nA*120}–${nA*320} kg</span>
+    <span class="k">Stoc congelat</span><span class="v">${nC?nC*60+'–'+nC*120+' kg':'—'}</span>`;
+  const w=$('#capwarn');w.hidden=nC>0;w.textContent='Fără congelatoare de depozit, marfa se stochează doar în abatitoare. Recomand cel puțin 2 congelatoare de depozit.';
+  const fit=S.fit==='a'?8500:5400;const rows=[['Malaxor spirală 100 L',5000,5000],['Mașină de turat',3000,4500],['Mașină de fitile, tăiere '+(S.fit==='a'?'automată':'manuală'),fit,fit]];
+  if(nC)rows.push([`Congelatoare depozit × ${nC}`,nC*2500,nC*2500]);
+  let lo=0,hi=0;const h=rows.map(([n,a,b])=>{lo+=a;hi+=b;return `<span class="k">${n}</span><span class="v">${a===b?eur(a):eur(a)+' – '+eur(b)}</span>`;}).join('');
+  $('#inv').innerHTML=h+`<span class="k">Abatitoare × ${nA}</span><span class="v">la ofertă</span><span class="k tot">Total fără abatitoare</span><span class="v tot">${eur(lo)} – ${eur(hi)}</span>`;renderPlan();renderPower();}
+const P={loc:4};
+const nf=(v,d=1)=>v.toLocaleString('ro-RO',{maximumFractionDigits:d});
+const rg=(a,b,d=1,u='')=>(nf(a,d)===nf(b,d)?nf(a,d):nf(a,d)+'–'+nf(b,d))+u;
+const half=v=>Math.ceil(v*2)/2;
+function renderPlan(){
+  const gc=Math.min(300,Math.max(30,+$('#g-cov').value||90)), gb=Math.min(500,Math.max(30,+$('#g-blat').value||150)), n=P.loc;
+  const k=coldKinds(),nA=k.filter(x=>x==='A').length,nC=4-nA;
+  const pc=[240*n,300*n],pb=[100*n,120*n];
+  const kc=pc.map(x=>x*gc/1000),kb=pb.map(x=>x*gb/1000),kt=[kc[0]+kb[0],kc[1]+kb[1]];
+  const rate=S.fit==='a'?40:32.5;
+  const hf=kc.map(x=>x/rate),ht=[pb[0]/200,pb[1]/150];
+  const fix=.5+.75+1.25;
+  const sh2=[half(fix+Math.max(hf[0],ht[0])),half(fix+Math.max(hf[1],ht[1]))];
+  const sh1=[half(fix+hf[0]+ht[0]),half(fix+hf[1]+ht[1])];
+  const batches=Math.ceil(kt[1]/57),cycles=Math.ceil(kt[1]/60),rounds=Math.ceil(cycles/nA);
+  const cph=Math.round(rate*1000/gc/10)*10,perShift=Math.round(rate*6.5*1000/gc/100)*100;
+  $('#need').innerHTML=`<tr><th>Necesar zilnic</th><th>bucăți</th><th>aluat</th></tr>
+    <tr><td>Covrigi</td><td>${rg(pc[0],pc[1],0)}</td><td>${rg(kc[0],kc[1])} kg</td></tr>
+    <tr><td>Blaturi</td><td>${rg(pb[0],pb[1],0)}</td><td>${rg(kb[0],kb[1])} kg</td></tr>
+    <tr class="tot"><td>Total</td><td></td><td>${rg(kt[0],kt[1])} kg</td></tr>`;
+  $('#capx').innerHTML=`<span class="k">Fitile, ritm real</span><span class="v">≈ ${nf(cph,0)} covrigi/h · ~${nf(perShift,0)}/tură</span>
+    <span class="k">Malaxor 100 L</span><span class="v">${batches} ${batches===1?'șarjă':'șarje'}/zi din 55–60 kg</span>
+    <span class="k">Turat blaturi (estimat)</span><span class="v">150–200 blaturi/h</span>
+    <span class="k">Congelare rapidă</span><span class="v">${cycles} ${cycles===1?'ciclu':'cicluri'} · ${rounds} ${rounds===1?'rundă':'runde'} · ${rg(rounds*90/60,rounds*230/60)} h</span>`;
+  $('#hours').innerHTML=`<tr><th>Ore pe zi</th><th>2 operatori</th><th>1 operator</th></tr>
+    <tr><td>Mașina de fitile</td><td colspan="2">${rg(hf[0],hf[1])} h</td></tr>
+    <tr><td>Mașina de turat</td><td colspan="2">${rg(ht[0],ht[1])} h</td></tr>
+    <tr class="tot"><td>Tură recomandată</td><td>${rg(sh2[0],sh2[1])} h</td><td>${rg(sh1[0],sh1[1])} h</td></tr>`;
+  const notes=[];
+  if(sh1[1]>8)notes.push('Cu un singur operator se depășește o tură de 8 h.');
+  if(rounds>=3)notes.push(`Cu ${nA} ${nA===1?'abatitor':'abatitoare'}, congelarea devine gâtuirea principală (${rounds} runde consecutive).`);
+  else notes.push('Ultimul ciclu de congelare poate rula după tură, în modul de menținere, cu transfer în congelatoare dimineața.');
+  if(!nC)notes.push('Fără congelatoare de depozit nu există stoc tampon.');
+  else{const d0=nC*60/kt[1],d1=nC*120/kt[0];notes.push(d1<1?`Stocul congelat (${nC*60}–${nC*120} kg) acoperă mai puțin de o zi de producție.`:`Stocul congelat (${nC*60}–${nC*120} kg) acoperă ≈ ${rg(d0,d1)} zile de producție, deci producția trebuie să fie zilnică.`);}
+  $('#reco').innerHTML=`<span>Pentru <b>${n} ${n===1?'locație':'locații'}</b> recomand <b>tura a 2-a de ${rg(sh2[0],sh2[1])} ore cu 2 operatori</b>, 6–7 zile pe săptămână, cu livrare zilnică.</span>`+notes.map(t=>`<span class="note">${t}</span>`).join('');
+}
+$('#loc').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;P.loc=+b.dataset.loc;setSeg('#loc','loc',String(P.loc));renderPlan();});
+['g-cov','g-blat'].forEach(id=>$('#'+id).addEventListener('input',renderPlan));
+function renderPower(){
+  const k=coldKinds(),nA=k.filter(x=>x==='A').length,nC=4-nA;
+  const L=[['Cuptor tunel electric',1,9,15,'400 V','s'],['Malaxor spirală 100 L',1,4,5.5,'400 V','p'],['Mașină de turat',1,.55,.75,'400 V','p'],
+    ['Mașină de fitile',1,1,2,'400 V','p'],['Abatitor 60 kg',nA,4,6,'400 V','p'],['Congelator depozit',nC,.4,.8,'230 V','ps'],
+    ['Vitrină vânzare',1,.5,1.5,'230 V','s'],['Boiler apă caldă',1,2,3,'230 V','ps'],['Climatizare / ventilație',1,2.5,3.5,'230/400 V','ps'],
+    ['Iluminat, firmă, prize, casă de marcat',1,1,1.5,'230 V','ps']].filter(r=>r[1]>0);
+  const sum=f=>L.filter(f).reduce((a,r)=>[a[0]+r[1]*r[2],a[1]+r[1]*r[3]],[0,0]);
+  const inst=sum(()=>true),prod=sum(r=>r[5].includes('p')),sale=sum(r=>r[5].includes('s')),ab=sum(r=>r[0].startsWith('Abatitor'));
+  const ov=[sale[0]+ab[0],sale[1]+ab[1]];
+  const c5=v=>Math.ceil(v/5)*5, rec=[c5(Math.max(prod[1],sale[1])),c5(Math.max(prod[1],sale[1],ov[1]))];
+  const amp=rec[1]*1000/(Math.sqrt(3)*400*.92), br=[25,32,40,50,63,80,100,125].find(a=>a>=amp)||125;
+  $('#pwr').innerHTML='<tr><th>Consumator</th><th>buc</th><th>kW total</th><th>rețea</th></tr>'+
+    L.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${rg(r[1]*r[2],r[1]*r[3],2)}</td><td>${r[4]}</td></tr>`).join('')+
+    `<tr class="tot"><td>Putere instalată</td><td></td><td>${rg(inst[0],inst[1])}</td><td></td></tr>`;
+  $('#pwrsum').innerHTML=`<span class="k">Vârf în modul producție</span><span class="v">${rg(prod[0],prod[1])} kW</span>
+    <span class="k">Vârf în modul vânzare</span><span class="v">${rg(sale[0],sale[1])} kW</span>
+    <span class="k">Suprapunere: cuptor + ultimul ciclu de congelare</span><span class="v">${rg(ov[0],ov[1])} kW</span>`;
+  $('#pwrreco').innerHTML=`<span>Recomand o <b>putere aprobată de ${rg(rec[0],rec[1],0)} kW</b>, trifazic 400 V, cu întrerupător general de <b>${br} A</b>.</span>
+    <span class="note">Producția și vânzarea nu funcționează simultan, așa că vârful real e mult sub puterea instalată (${rg(inst[0],inst[1],0)} kW). Cele mai mari consumuri sunt cuptorul și abatitoarele.</span>`;
+}
+function setSeg(sel,attr,val){document.querySelectorAll(sel+' button').forEach(b=>b.classList.toggle('on',b.dataset[attr]===val));}
+$('#cfg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.cfg=b.dataset.cfg;setSeg('#cfg','cfg',S.cfg);renderEq();renderNums();});
+$('#fit').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.fit=b.dataset.fit;setSeg('#fit','fit',S.fit);renderNums();});
+$('#eqlist').addEventListener('click',e=>{const b=e.target.closest('.eq');if(b)focusItem(b.dataset.id);});
+
+/* ---------- highlight / focus ---------- */
+const hl=new THREE.Box3Helper(new THREE.Box3(),0xa85d1a);hl.visible=false;scene.add(hl);let hlUntil=0,hlItem=null;
+function focusItem(id){const it=byId(id);if(!it)return;setRoof(false);hlItem=it;hlUntil=performance.now()+3000;
+  const p=it.model.getWorldPosition(new THREE.Vector3()), off=camera.position.clone().sub(controls.target).setLength(5.2);
+  flyTo(new THREE.Vector3(p.x,.7,p.z).add(off),new THREE.Vector3(p.x,.7,p.z));}
+
+/* ---------- mode tween ---------- */
+let tw=null;const DUR=reduce?10:1900;
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2, cl=v=>Math.max(0,Math.min(1,v));
+let zoneCur=0,zoneStart=0;
+function setMode(m){if(m===S.mode&&tw===null)return;S.mode=m;renderMode();const tgt=m==='sale'?1:0;
+  items.forEach(it=>it.start=it.cur);zoneStart=zoneCur;tw={t0:performance.now(),tgt};}
+document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+function applyItem(it,k){if(!it.sale)return;const a=it.prod,b=it.sale;
+  it.model.position.x=a.x+(b.x-a.x)*k;it.model.position.z=a.z+(b.z-a.z)*k;it.model.rotation.y=(a.r||0)+((b.r||0)-(a.r||0))*k;
+  // ridicare ușoară în mers, ca roțile să „rostogolească" vizual
+  if(it.model.userData.fold)it.model.userData.fold(cl(k*1.7));}
+function stepTween(now){if(!tw)return;const P=(now-tw.t0)/DUR;let done=true;
+  const mob=items.filter(i=>i.sale);mob.forEach((it,i)=>{const lp=cl((P*1.45)-i*.11);if(lp<1)done=false;it.cur=it.start+(tw.tgt-it.start)*ease(lp);applyItem(it,it.cur);});
+  const zp=cl(P);zoneCur=zoneStart+(tw.tgt-zoneStart)*ease(zp);if(zp<1)done=false;if(done)tw=null;}
+function applyZones(){const k=zoneCur;zoneProd.opacity=.1*(1-k);zoneSale.opacity=.24*k;M.person.opacity=.85*k;
+  people.forEach(p=>p.visible=k>.02);flowG.visible=flowOn&&k<.98;flowMat.opacity=.9*(1-k);saleLbl.on=k>.5;}
+
+/* ---------- camera ---------- */
+const VIEWS={iso:[[-3.8,8.8,6.4],[2.3,.5,-3.0]],plan:[[2.35,13.5,-3.24],[2.35,0,-3.25]],street:[[3.0,1.65,6.4],[2.6,1.0,-2.4]]};
+let fly=null;
+function flyTo(pos,tgt){fly={t0:performance.now(),p0:camera.position.clone(),t1:controls.target.clone(),pos,tgt};}
+function setView(v){const [p,t]=VIEWS[v];if(v==='plan')setRoof(false);flyTo(new THREE.Vector3(...p),new THREE.Vector3(...t));
+  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===v));}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+camera.position.set(...VIEWS.iso[0]);controls.target.set(...VIEWS.iso[1]);
+
+/* toggles */
+let labelsOn=true,flowOn=true;
+$('#t-labels').addEventListener('click',e=>{labelsOn=!labelsOn;e.currentTarget.classList.toggle('on',labelsOn);labelsEl.hidden=!labelsOn;});
+$('#t-flow').addEventListener('click',e=>{flowOn=!flowOn;e.currentTarget.classList.toggle('on',flowOn);});
+$('#t-facade').addEventListener('click',()=>setFacade(!facadeOn));
+$('#t-roof').addEventListener('click',()=>setRoof(!roofOn));
+
+/* ---------- theme ---------- */
+function applyTheme(){scene.background=new THREE.Color(css('--scene')||'#e4e8e5');
+  const set=(m,v)=>{const c=css(v);if(c)m.color.set(c.slice(0,7));};
+  set(M.floor,'--floor');set(M.ground,'--ground');set(M.wall,'--wall');set(M.cap,'--cap');set(gridMat,'--grid');set(dimMat,'--muted');
+  set(zoneProd,'--prod');set(zoneSale,'--sale');set(flowMat,'--prod');hl.material.color.set(css('--sale').slice(0,7));
+  const dark=matchMedia('(prefers-color-scheme: dark)').matches&&document.documentElement.dataset.theme!=='light'||document.documentElement.dataset.theme==='dark';
+  M.pave.color.set(dark?'#2b3330':'#dadfdb');}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* ---------- loop ---------- */
+function resize(){const w=viewer.clientWidth,h=viewer.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(viewer);
+const v3=new THREE.Vector3();
+function frame(now){
+  stepTween(now);applyZones();
+  if(fly){const t=cl((now-fly.t0)/(reduce?1:1100)),e=ease(t);camera.position.lerpVectors(fly.p0,fly.pos,e);controls.target.lerpVectors(fly.t1,fly.tgt,e);if(t>=1)fly=null;}
+  roofK+=((roofOn?1:0)-roofK)*(reduce?1:.1);if(Math.abs(roofK-(roofOn?1:0))<.002)roofK=roofOn?1:0;roofG.position.y=(1-roofK)*3;roofG.visible=roofK>.01;
+  controls.update();
+  const bt=now/1000;beads.forEach((b,i)=>{const d=((bt*.45+i*.37)%1)*b.len;const s=b.segs.find(s=>d<=s.o+s.l)||b.segs[b.segs.length-1];b.bead.position.copy(s.a).lerp(s.b,cl((d-s.o)/s.l));b.bead.position.y=.05;});
+  if(hlItem&&now<hlUntil){hl.box.setFromObject(hlItem.model).expandByScalar(.04);hl.visible=true;}else hl.visible=false;
+  renderer.render(scene,camera);
+  if(labelsOn){const w=viewer.clientWidth,h=viewer.clientHeight;labels.forEach(L=>{root.localToWorld(v3.copy(L.get())).project(camera);
+    const vis=L.on&&!(L.inside&&roofK>.5)&&v3.z<1&&Math.abs(v3.x)<1.1&&Math.abs(v3.y)<1.1;L.el.classList.toggle('off',!vis);
+    if(vis)L.el.style.transform=`translate(${((v3.x+1)/2*w).toFixed(1)}px,${((1-v3.y)/2*h).toFixed(1)}px) translate(-50%,-100%)`;});}
+  requestAnimationFrame(frame);}
+document.querySelectorAll('.lb.mob').forEach(el=>el.style.setProperty('--mc','var(--prod)'));
+applyTheme();renderMode();renderEq();renderNums();resize();requestAnimationFrame(frame);
+})();
+</script>
+
+</html>
